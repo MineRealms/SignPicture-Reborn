@@ -1,5 +1,7 @@
 package cn.minerealms.signpicture.handler;
 
+import cn.minerealms.signpicture.entry.EntryManager;
+import cn.minerealms.signpicture.entry.content.ContentManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.TickEvent;
@@ -11,13 +13,21 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 @OnlyIn(Dist.CLIENT)
 public class ClientEventHandler {
     
+    private int tickCount = 0;
+    
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
-            // TODO: 处理客户端tick
-            // - 更新动画
-            // - 垃圾回收
-            // - 内容加载
+            tickCount++;
+            
+            // Tick所有Entry
+            EntryManager.instance.tickAll();
+            
+            // 定期垃圾回收
+            if (tickCount % 300 == 0) { // 每15秒
+                EntryManager.instance.collectGarbage();
+                ContentManager.instance.collectGarbage();
+            }
         }
     }
     

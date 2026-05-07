@@ -70,6 +70,10 @@ public class ContentId {
         return new ResourceLocation(StringUtils.substring(this.id, 1));
     }
     
+    public @Nonnull Content content() {
+        return ContentManager.instance.get(this);
+    }
+    
     public static @Nonnull ContentId from(final @Nonnull String uri) {
         return new ContentId(uri);
     }

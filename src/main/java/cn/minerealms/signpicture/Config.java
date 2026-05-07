@@ -138,11 +138,7 @@ public class Config {
         public final ForgeConfigSpec.IntValue contentSyncTick;
         public final ForgeConfigSpec.IntValue contentMaxRetry;
         
-        // === 版本更新 ===
-        public final ForgeConfigSpec.BooleanValue informationNotice;
-        public final ForgeConfigSpec.BooleanValue informationJoinBeta;
-        public final ForgeConfigSpec.BooleanValue informationUpdateGui;
-        public final ForgeConfigSpec.BooleanValue informationTryNew;
+        // 版本更新功能已移除
         
         // === 多人游戏反作弊 ===
         public final ForgeConfigSpec.BooleanValue multiplayPAAS;
@@ -237,25 +233,7 @@ public class Config {
             
             builder.pop();
             
-            builder.comment("Version Update Settings").push("version");
-            
-            informationNotice = builder
-                    .comment("Show update notifications")
-                    .define("notice", true);
-            
-            informationJoinBeta = builder
-                    .comment("Join beta channel")
-                    .define("joinBeta", false);
-            
-            informationUpdateGui = builder
-                    .comment("Show update GUI")
-                    .define("updateGui", true);
-            
-            informationTryNew = builder
-                    .comment("Try new features")
-                    .define("tryNew", false);
-            
-            builder.pop();
+            // 版本更新功能已移除
             
             builder.comment("Prevent Anti-AutoSign Plugin (e.g., NoCheatPlus)").push("preventAntiAutoSign");
             

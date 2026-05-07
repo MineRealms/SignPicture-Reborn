@@ -1,6 +1,7 @@
 package cn.minerealms.signpicture;
 
 import cn.minerealms.signpicture.command.SignPicCommand;
+import cn.minerealms.signpicture.entry.content.ContentManager;
 import cn.minerealms.signpicture.handler.ClientEventHandler;
 import cn.minerealms.signpicture.handler.KeyHandler;
 import com.mojang.logging.LogUtils;
@@ -17,7 +18,10 @@ import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
+
+import java.io.File;
 
 /**
  * SignPicture-Rebornified 主类
@@ -48,7 +52,14 @@ public class SignPicture {
     
     private void commonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("SignPicture common setup");
-        // 通用初始化逻辑
+        
+        // 初始化ContentManager
+        event.enqueueWork(() -> {
+            File gameDir = FMLPaths.GAMEDIR.get().toFile();
+            File signpicDir = new File(gameDir, "signpic");
+            ContentManager.instance.init(signpicDir);
+            LOGGER.info("ContentManager initialized at: " + signpicDir.getAbsolutePath());
+        });
     }
     
     private void clientSetup(final FMLClientSetupEvent event) {
