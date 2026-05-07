@@ -104,6 +104,11 @@ public class SyncSignPicturePacket {
             data.setRotation(packet.rotationX, packet.rotationY, packet.rotationZ);
             data.setOffset(packet.offsetX, packet.offsetY, packet.offsetZ);
 
+            Log.info("[Client] Syncing SignPicture: " + packet.uuid +
+                     " - Size: " + packet.sizeWidth + "x" + packet.sizeHeight +
+                     ", Rotation: " + packet.rotationX + "," + packet.rotationY + "," + packet.rotationZ +
+                     ", Offset: " + packet.offsetX + "," + packet.offsetY + "," + packet.offsetZ);
+
             // 2. 保存元数据到客户端本地缓存
             SignPictureDataManagerClient.INSTANCE.saveMetadata(packet.uuid, data);
 
@@ -111,7 +116,7 @@ public class SyncSignPicturePacket {
             ContentId contentId = ContentId.from(packet.url);
             ContentManager.instance.get(contentId); // 自动开始异步下载
 
-            Log.debug("[Client] Synced SignPicture: " + packet.uuid);
+            Log.info("[Client] Synced SignPicture successfully: " + packet.uuid);
 
         } catch (Exception e) {
             Log.error("[Client] Failed to sync SignPicture", e);

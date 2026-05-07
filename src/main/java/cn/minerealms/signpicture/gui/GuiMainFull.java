@@ -455,19 +455,23 @@ public class GuiMainFull extends BaseGuiScreen {
         // 区分创建和更新
         if (this.editingUUID != null) {
             // 更新现有SignPicture
-            Log.info("Updating SignPicture " + this.editingUUID + " at " + this.sign.getBlockPos());
+            Log.info("[GUI] Updating SignPicture " + this.editingUUID + " at " + this.sign.getBlockPos());
+            Log.info("[GUI] New parameters - Size: " + sizeWidth + "x" + sizeHeight +
+                     ", Rotation: " + rotationX + "," + rotationY + "," + rotationZ +
+                     ", Offset: " + offsetX + "," + offsetY + "," + offsetZ);
 
             SignPictureData data = new SignPictureData(this.editingUUID, this.currentUrl);
             data.setSize(this.sizeWidth, this.sizeHeight);
             data.setRotation(this.rotationX, this.rotationY, this.rotationZ);
             data.setOffset(this.offsetX, this.offsetY, this.offsetZ);
 
+            Log.info("[GUI] Sending UpdateSignPicturePacket to server");
             cn.minerealms.signpicture.network.NetworkHandler.sendToServer(
                     new cn.minerealms.signpicture.network.UpdateSignPicturePacket(data)
             );
         } else {
             // 创建新SignPicture
-            Log.info("Creating SignPicture at " + this.sign.getBlockPos());
+            Log.info("[GUI] Creating SignPicture at " + this.sign.getBlockPos());
 
             cn.minerealms.signpicture.network.NetworkHandler.sendToServer(
                     new cn.minerealms.signpicture.network.CreateSignPicturePacket(

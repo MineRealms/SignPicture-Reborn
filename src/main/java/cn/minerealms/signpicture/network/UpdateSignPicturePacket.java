@@ -83,23 +83,34 @@ public class UpdateSignPicturePacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) {
+                Log.error("[Server] UpdateSignPicturePacket: player is null");
                 return;
             }
+
+            Log.info("[Server] Received UpdateSignPicturePacket from " + player.getName().getString() +
+                     " for UUID: " + packet.uuid);
 
             try {
                 // 1. 获取现有数据检查权限
                 SignPictureData existingData = SignPictureDataManagerServer.INSTANCE.get(packet.uuid);
                 if (existingData == null) {
+                    Log.error("[Server] SignPicture not found: " + packet.uuid);
                     player.sendSystemMessage(Component.literal("§cSignPicture not found: " + packet.uuid));
                     return;
                 }
 
+                Log.info("[Server] Existing data found. Creator: " + existingData.getCreatorUUID() +
+                         ", Player: " + player.getStringUUID());
+
                 // 2. 权限检查
                 if (!SignPicturePermission.INSTANCE.canEdit(player, existingData)) {
+                    Log.warn("[Server] Permission denied for player " + player.getName().getString() +
+                             " to edit SignPicture " + packet.uuid);
                     player.sendSystemMessage(Component.literal("§cYou don't have permission to edit this SignPicture"));
-                    Log.warn("[Server] Player " + player.getName().getString() + " tried to edit SignPicture " + packet.uuid + " without permission");
                     return;
                 }
+
+                Log.info("[Server] Permission granted");
 
                 // 3. 重建数据对象（保留创建者UUID）
                 SignPictureData data = new SignPictureData(packet.uuid, packet.url);
