@@ -49,7 +49,10 @@ public class SignPicture {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             LOGGER.info("SignPicture client setup");
             // 客户端初始化逻辑
-            // 注册渲染器、按键绑定等
+            event.enqueueWork(() -> {
+                // 注册渲染器将在后续实现
+                // EntityRenderers.register(BlockEntityType.SIGN, SignPictureRenderer::new);
+            });
         });
     }
 }
