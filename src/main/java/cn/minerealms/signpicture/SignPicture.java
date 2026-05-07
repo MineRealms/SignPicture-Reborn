@@ -1,12 +1,15 @@
 package cn.minerealms.signpicture;
 
+import cn.minerealms.signpicture.command.SignPicCommand;
 import cn.minerealms.signpicture.handler.ClientEventHandler;
 import cn.minerealms.signpicture.handler.KeyHandler;
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -66,5 +69,11 @@ public class SignPicture {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             KeyHandler.instance.registerKeys(event);
         });
+    }
+    
+    @SubscribeEvent
+    public void onRegisterCommands(RegisterCommandsEvent event) {
+        SignPicCommand.register(event.getDispatcher());
+        LOGGER.info("SignPicture commands registered");
     }
 }
