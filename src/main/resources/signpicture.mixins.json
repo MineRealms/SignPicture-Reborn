@@ -8,6 +8,7 @@
   ],
   "client": [
     "SignBlockEntityMixin",
+    "SignEditScreenMixin",
     "BookEditScreenMixin",
     "ChatComponentMixin",
     "ScreenMixin"

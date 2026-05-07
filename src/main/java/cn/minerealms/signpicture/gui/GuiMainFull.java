@@ -305,7 +305,35 @@ public class GuiMainFull extends BaseGuiScreen {
 
     private void writeUrlToSign() {
         if (this.sign == null) return;
-        // TODO: 使用网络包更新告示牌
+
+        // 将URL分成4行
+        String[] lines = splitUrl(this.currentUrl, 4);
+
+        // 发送网络包到服务器
+        cn.minerealms.signpicture.network.NetworkHandler.INSTANCE.sendToServer(
+                new cn.minerealms.signpicture.network.UpdateSignPacket(
+                        this.sign.getBlockPos(),
+                        lines,
+                        true // 正面文本
+                )
+        );
+    }
+
+    private String[] splitUrl(@Nonnull String url, int maxLines) {
+        String[] lines = new String[maxLines];
+        int maxLength = 15; // 每行最大字符数
+
+        for (int i = 0; i < maxLines; i++) {
+            int start = i * maxLength;
+            if (start >= url.length()) {
+                lines[i] = "";
+            } else {
+                int end = Math.min(start + maxLength, url.length());
+                lines[i] = url.substring(start, end);
+            }
+        }
+
+        return lines;
     }
 
     private void openSizeGui() {
