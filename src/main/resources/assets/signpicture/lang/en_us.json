@@ -1,0 +1,23 @@
+{
+  "key.categories.signpicture": "SignPicture",
+  "key.signpicture.open_gui": "Open SignPicture GUI",
+  "key.signpicture.toggle_preview": "Toggle Preview Mode",
+  
+  "signpic.state.init": "Initializing...",
+  "signpic.state.initialized": "Initialized",
+  "signpic.state.downloading": "Downloading... %s%%",
+  "signpic.state.downloaded": "Downloaded",
+  "signpic.state.loading": "Loading... %s%%",
+  "signpic.state.loaded": "Loaded",
+  "signpic.state.available": "Available",
+  "signpic.state.error": "Error",
+  
+  "signpic.advmsg.invalidurl": "Invalid URL: %s",
+  "signpic.advmsg.loadstopped": "Load stopped: %s",
+  "signpic.advmsg.retryover": "Retry limit exceeded: %s",
+  "signpic.advmsg.capacityover": "File size limit exceeded: %s",
+  "signpic.advmsg.blocked": "Content blocked: %s",
+  "signpic.advmsg.invalidimage": "Invalid image: %s",
+  "signpic.advmsg.ioerror": "I/O error: %s",
+  "signpic.advmsg.unknown": "Unknown error: %s"
+}

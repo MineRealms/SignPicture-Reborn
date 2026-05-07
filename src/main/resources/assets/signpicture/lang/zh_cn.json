@@ -1,0 +1,23 @@
+{
+  "key.categories.signpicture": "SignPicture",
+  "key.signpicture.open_gui": "打开SignPicture界面",
+  "key.signpicture.toggle_preview": "切换预览模式",
+  
+  "signpic.state.init": "初始化中...",
+  "signpic.state.initialized": "已初始化",
+  "signpic.state.downloading": "下载中... %s%%",
+  "signpic.state.downloaded": "已下载",
+  "signpic.state.loading": "加载中... %s%%",
+  "signpic.state.loaded": "已加载",
+  "signpic.state.available": "可用",
+  "signpic.state.error": "错误",
+  
+  "signpic.advmsg.invalidurl": "无效的URL: %s",
+  "signpic.advmsg.loadstopped": "加载已停止: %s",
+  "signpic.advmsg.retryover": "重试次数已超限: %s",
+  "signpic.advmsg.capacityover": "文件大小超限: %s",
+  "signpic.advmsg.blocked": "内容已被阻止: %s",
+  "signpic.advmsg.invalidimage": "无效的图片: %s",
+  "signpic.advmsg.ioerror": "I/O错误: %s",
+  "signpic.advmsg.unknown": "未知错误: %s"
+}
