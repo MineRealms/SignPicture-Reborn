@@ -38,14 +38,23 @@ public class RequestSignPicturePacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) {
+                Log.error("[Server] RequestSignPicturePacket: player is null");
                 return;
             }
+
+            Log.info("[Server] Received RequestSignPicturePacket from " + player.getName().getString() +
+                     " for UUID: " + packet.uuid);
 
             try {
                 // 从服务端加载数据
                 SignPictureData data = SignPictureDataManagerServer.INSTANCE.get(packet.uuid);
 
                 if (data != null) {
+                    Log.info("[Server] Found data for " + packet.uuid +
+                             " - Size: " + data.getSizeWidth() + "x" + data.getSizeHeight() +
+                             ", Rotation: " + data.getRotationX() + "," + data.getRotationY() + "," + data.getRotationZ() +
+                             ", Offset: " + data.getOffsetX() + "," + data.getOffsetY() + "," + data.getOffsetZ());
+
                     // 发送给请求的客户端
                     ResponseSignPicturePacket response = new ResponseSignPicturePacket(data);
                     NetworkHandler.sendToClient(response, player);

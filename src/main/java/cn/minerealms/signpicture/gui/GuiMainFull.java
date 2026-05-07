@@ -248,20 +248,23 @@ public class GuiMainFull extends BaseGuiScreen {
         }
 
         this.editingUUID = uuid;
+        Log.info("[GUI] Detected existing SignPicture: " + uuid);
 
         // 从客户端缓存加载数据
         SignPictureData data = SignPictureDataManagerClient.INSTANCE.getMetadata(uuid);
-        if (data == null) {
-            // 缓存中没有，请求服务端
-            NetworkHandler.sendToServer(new RequestSignPicturePacket(uuid));
-            Log.info("[GUI] Requesting SignPicture data: " + uuid);
-            // 数据会通过ResponseSignPicturePacket异步返回，暂时显示加载中
+        if (data != null) {
+            // 缓存命中，立即加载
+            Log.info("[GUI] Data found in client cache");
+            loadDataToGui(data);
+            dataLoaded = true;
             return;
         }
 
-        // 加载数据到GUI
-        loadDataToGui(data);
-        dataLoaded = true; // 标记数据已加载
+        // 缓存未命中，请求服务端
+        Log.info("[GUI] Data not in cache, requesting from server");
+        NetworkHandler.sendToServer(new RequestSignPicturePacket(uuid));
+        // 数据会通过ResponseSignPicturePacket异步返回
+        // tick()方法会轮询缓存直到数据到达
     }
 
     /**

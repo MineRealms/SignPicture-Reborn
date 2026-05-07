@@ -90,6 +90,11 @@ public class ResponseSignPicturePacket {
 
     private static void handleClient(ResponseSignPicturePacket packet) {
         try {
+            Log.info("[Client] Received ResponseSignPicturePacket for UUID: " + packet.uuid +
+                     " - Size: " + packet.sizeWidth + "x" + packet.sizeHeight +
+                     ", Rotation: " + packet.rotationX + "," + packet.rotationY + "," + packet.rotationZ +
+                     ", Offset: " + packet.offsetX + "," + packet.offsetY + "," + packet.offsetZ);
+
             // 1. 重建数据对象
             SignPictureData data = new SignPictureData(packet.uuid, packet.url);
             data.setSize(packet.sizeWidth, packet.sizeHeight);
@@ -103,7 +108,7 @@ public class ResponseSignPicturePacket {
             ContentId contentId = ContentId.from(packet.url);
             ContentManager.instance.get(contentId);
 
-            Log.info("[Client] Received SignPicture data: " + packet.uuid);
+            Log.info("[Client] Saved SignPicture data to cache: " + packet.uuid);
 
         } catch (Exception e) {
             Log.error("[Client] Failed to handle response", e);
