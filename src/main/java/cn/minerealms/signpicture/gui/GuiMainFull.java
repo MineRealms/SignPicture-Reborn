@@ -81,6 +81,10 @@ public class GuiMainFull extends BaseGuiScreen {
     private BufferedImage previewImage = null;
     private boolean showPreview = true;
 
+    // 数据加载状态
+    private boolean dataLoaded = false;
+    private int loadCheckTicks = 0;
+
     // 属性存储
     private float sizeWidth = 1.0f;
     private float sizeHeight = 1.0f;
@@ -257,6 +261,7 @@ public class GuiMainFull extends BaseGuiScreen {
 
         // 加载数据到GUI
         loadDataToGui(data);
+        dataLoaded = true; // 标记数据已加载
     }
 
     /**
@@ -280,7 +285,10 @@ public class GuiMainFull extends BaseGuiScreen {
 
         loadPreview();
 
-        Log.info("[GUI] Loaded SignPicture data: " + data.getUuid());
+        Log.info("[GUI] Loaded SignPicture data: " + data.getUuid() +
+                 " - Size: " + sizeWidth + "x" + sizeHeight +
+                 ", Rotation: " + rotationX + "," + rotationY + "," + rotationZ +
+                 ", Offset: " + offsetX + "," + offsetY + "," + offsetZ);
     }
 
     private void loadPreview() {
@@ -517,9 +525,10 @@ public class GuiMainFull extends BaseGuiScreen {
                 Entry entry = EntryManager.instance.get(entryId, contentId);
                 Content content = entry.getContent();
 
+                // 严格检查：必须isAvailable且image不为null
                 if (content != null && content.isAvailable()) {
                     BufferedImage image = content.getImage();
-                    if (image != null) {
+                    if (image != null && image.getWidth() > 0 && image.getHeight() > 0) {
                         // 绘制预览边框
                         guiGraphics.fill(previewX - 1, previewY - 1,
                                 previewX + maxWidth + 1, previewY + maxHeight + 1,
@@ -528,10 +537,12 @@ public class GuiMainFull extends BaseGuiScreen {
                         ImageRenderer.renderImage(guiGraphics, image,
                                 previewX, previewY, maxWidth, maxHeight);
                     } else {
+                        // 图片无效，显示加载中
                         guiGraphics.drawString(this.font, "Loading preview...",
                                 this.guiLeft + 10, this.guiTop + 70, 0x808080, false);
                     }
                 } else {
+                    // 还在下载，显示加载中
                     guiGraphics.drawString(this.font, "Loading preview...",
                             this.guiLeft + 10, this.guiTop + 70, 0x808080, false);
                 }
@@ -547,6 +558,28 @@ public class GuiMainFull extends BaseGuiScreen {
         // 绘制提示信息
         guiGraphics.drawString(this.font, "Tip: Use Screenshot to capture, Upload to share",
                 this.guiLeft + 10, this.guiTop + 230, 0x606060, false);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+
+        // 定期检查数据是否已加载（仅在编辑模式且数据未加载时）
+        if (!dataLoaded && editingUUID != null) {
+            loadCheckTicks++;
+
+            // 每10 ticks检查一次（0.5秒）
+            if (loadCheckTicks >= 10) {
+                loadCheckTicks = 0;
+
+                SignPictureData data = SignPictureDataManagerClient.INSTANCE.getMetadata(editingUUID);
+                if (data != null) {
+                    loadDataToGui(data);
+                    dataLoaded = true;
+                    Log.info("[GUI] Data loaded from cache: " + editingUUID);
+                }
+            }
+        }
     }
 
     @Override
