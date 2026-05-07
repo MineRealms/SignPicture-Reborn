@@ -49,28 +49,25 @@ public class UpdateSignPacket {
 
             BlockEntity blockEntity = player.level().getBlockEntity(packet.pos);
             if (blockEntity instanceof SignBlockEntity sign) {
-                // 更新告示牌文本
-                // 使用反射访问私有方法
-                try {
-                    var textField = packet.isFrontText ?
-                        SignBlockEntity.class.getDeclaredField("frontText") :
-                        SignBlockEntity.class.getDeclaredField("backText");
-                    textField.setAccessible(true);
+                // 更新告示牌文本 - 使用公共API而不是反射
+                var originalText = packet.isFrontText ? sign.getFrontText() : sign.getBackText();
 
-                    var text = packet.isFrontText ? sign.getFrontText() : sign.getBackText();
-
-                    for (int i = 0; i < 4; i++) {
-                        text = text.setMessage(i, net.minecraft.network.chat.Component.literal(packet.lines[i]));
-                    }
-
-                    textField.set(sign, text);
-
-                    sign.setChanged();
-                    player.level().sendBlockUpdated(packet.pos, sign.getBlockState(), sign.getBlockState(), 3);
-                } catch (Exception e) {
-                    // 记录错误但不崩溃
-                    e.printStackTrace();
+                // 更新每一行文本
+                var updatedText = originalText;
+                for (int i = 0; i < 4; i++) {
+                    updatedText = updatedText.setMessage(i, net.minecraft.network.chat.Component.literal(packet.lines[i]));
                 }
+
+                // 使用公共方法更新文本
+                final var finalText = updatedText;
+                if (packet.isFrontText) {
+                    sign.updateText(signText -> finalText, true);
+                } else {
+                    sign.updateText(signText -> finalText, false);
+                }
+
+                sign.setChanged();
+                player.level().sendBlockUpdated(packet.pos, sign.getBlockState(), sign.getBlockState(), 3);
             }
         });
         ctx.get().setPacketHandled(true);

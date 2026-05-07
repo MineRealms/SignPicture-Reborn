@@ -249,4 +249,19 @@ public class GuiMain extends BaseGuiScreen {
         }
         return super.charTyped(codePoint, modifiers);
     }
+
+    // ========== 属性设置方法（占位符，GuiMain不保存属性）==========
+
+    public void setSize(float width, float height) {
+        // GuiMain是简化版，不保存属性
+        // 属性只在GuiMainFull中保存
+    }
+
+    public void setRotation(float x, float y, float z) {
+        // GuiMain是简化版，不保存属性
+    }
+
+    public void setOffset(float x, float y, float z) {
+        // GuiMain是简化版，不保存属性
+    }
 }

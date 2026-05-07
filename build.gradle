@@ -105,6 +105,9 @@ dependencies {
     jarJar(group: 'org.ow2.asm', name: 'asm-commons', version: '[9.5,10.0)')
     jarJar(group: 'org.ow2.asm', name: 'asm-analysis', version: '[9.5,10.0)')
     jarJar(group: 'org.ow2.asm', name: 'asm-util', version: '[9.5,10.0)')
+
+    // ModernUI - 从AssimpLoader的mods_dev目录复制
+    implementation fg.deobf(fileTree(dir: 'mods_dev', include: 'ModernUI-*.jar'))
 }
 
 tasks.named('processResources', ProcessResources).configure {

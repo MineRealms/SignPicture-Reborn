@@ -1,5 +1,6 @@
 package cn.minerealms.signpicture.gui;
 
+import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.attr.prop.SizeData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphics;
@@ -100,7 +101,16 @@ public class GuiSize extends BaseGuiScreen {
     }
 
     private void onDone() {
-        // TODO: 保存大小设置
+        // 保存大小设置到父GUI
+        if (this.parentScreen instanceof GuiMainFull) {
+            GuiMainFull parent = (GuiMainFull) this.parentScreen;
+            parent.setSize(this.width, this.height);
+            Log.debug("Size saved: " + this.width + " x " + this.height);
+        } else if (this.parentScreen instanceof GuiMain) {
+            GuiMain parent = (GuiMain) this.parentScreen;
+            parent.setSize(this.width, this.height);
+            Log.debug("Size saved: " + this.width + " x " + this.height);
+        }
         this.onClose();
     }
 

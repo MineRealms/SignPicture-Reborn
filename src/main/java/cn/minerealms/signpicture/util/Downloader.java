@@ -53,7 +53,7 @@ public class Downloader {
                     callback.onError(new IOException("Empty response"));
                 }
             } catch (Exception e) {
-                Log.LOGGER.error("Download failed: " + url, e);
+                Log.error("Download failed: " + url, e);
                 callback.onError(e);
             }
         });

@@ -1,5 +1,6 @@
 package cn.minerealms.signpicture.gui;
 
+import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.attr.prop.RotationData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphics;
@@ -120,7 +121,16 @@ public class GuiRotation extends BaseGuiScreen {
     }
 
     private void onDone() {
-        // TODO: 保存旋转设置
+        // 保存旋转设置到父GUI
+        if (this.parentScreen instanceof GuiMainFull) {
+            GuiMainFull parent = (GuiMainFull) this.parentScreen;
+            parent.setRotation(this.rotationX, this.rotationY, this.rotationZ);
+            Log.debug("Rotation saved: " + this.rotationX + ", " + this.rotationY + ", " + this.rotationZ);
+        } else if (this.parentScreen instanceof GuiMain) {
+            GuiMain parent = (GuiMain) this.parentScreen;
+            parent.setRotation(this.rotationX, this.rotationY, this.rotationZ);
+            Log.debug("Rotation saved: " + this.rotationX + ", " + this.rotationY + ", " + this.rotationZ);
+        }
         this.onClose();
     }
 

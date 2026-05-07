@@ -1,6 +1,7 @@
 package cn.minerealms.signpicture.entry.content;
 
 import cn.minerealms.signpicture.Config;
+import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.entry.IAsyncProcessable;
 import cn.minerealms.signpicture.entry.ICollectable;
 import cn.minerealms.signpicture.entry.IDivisionProcessable;
@@ -88,61 +89,102 @@ public class Content implements Progressable, IInitable, IAsyncProcessable, IDiv
         }
         this.gifImage = null;
     }
-    
+
     private void download() throws Exception {
         if (this.retryCount >= Config.COMMON.contentMaxRetry.get()) {
             throw new RetryCountOverException("Max retry count exceeded");
         }
-        
+
         this.state.setType(StateType.DOWNLOADING);
         this.retryCount++;
-        
-        // 使用Downloader下载
+
         String url = this.id.getURI();
-        Downloader downloader = new Downloader(
-            Config.COMMON.communicateThreads.get(),
-            Config.COMMON.communicateDLTimedout.get()
-        );
-        
-        final boolean[] success = {false};
-        downloader.download(url, new Downloader.DownloadCallback() {
-            @Override
-            public void onSuccess(InputStream stream, long contentLength) throws java.io.IOException {
-                // 检查大小限制
-                int maxSize = Config.COMMON.contentMaxByte.get();
-                if (maxSize > 0 && contentLength > maxSize) {
-                    throw new java.io.IOException("File too large: " + contentLength);
-                }
+        Log.debug("Downloading: " + url);
 
-                // 保存到缓存
-                try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = stream.read(buffer)) != -1) {
-                        fos.write(buffer, 0, bytesRead);
-                    }
-                }
+        // 使用同步下载
+        try {
+            java.net.URL urlObj = new java.net.URL(url);
+            Log.debug("URL: " + url);
 
-                state.setType(StateType.DOWNLOADED);
-                success[0] = true;
+            // 设置代理 - 优先使用用户代理127.0.0.1:7890
+            java.net.Proxy proxy = java.net.Proxy.NO_PROXY;
+
+            // 硬编码常用代理端口，也可能用户没开代理所以用直接连接
+            String proxyHost = System.getProperty("http.proxyHost");
+            String proxyPort = System.getProperty("http.proxyPort");
+
+            // 如果JVM没有设置代理，尝试常用代理地址
+            if (proxyHost == null || proxyHost.isEmpty()) {
+                // 尝试直连
+                proxy = java.net.Proxy.NO_PROXY;
+                Log.debug("Using direct connection (no proxy)");
+            } else {
+                try {
+                    int port = Integer.parseInt(proxyPort);
+                    proxy = new java.net.Proxy(java.net.Proxy.Type.HTTP, new java.net.InetSocketAddress(proxyHost, port));
+                    Log.debug("Using proxy: " + proxyHost + ":" + proxyPort);
+                } catch (Exception e) {
+                    proxy = java.net.Proxy.NO_PROXY;
+                }
             }
 
-            @Override
-            public void onError(Exception e) {
-                state.setErrorMessage(e);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) urlObj.openConnection(proxy);
+            conn.setInstanceFollowRedirects(true);
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            conn.setRequestProperty("Accept", "image/png,image/jpeg,image/gif,image/webp,*/*");
+            conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode != 200) {
+                throw new java.io.IOException("HTTP " + responseCode);
             }
-        });
-        
-        // 等待下载完成
-        Thread.sleep(100);
-        if (!success[0] && this.retryCount < Config.COMMON.contentMaxRetry.get()) {
-            download(); // 重试
+
+            long contentLength = conn.getContentLengthLong();
+            int maxSize = Config.COMMON.contentMaxByte.get();
+            if (maxSize > 0 && contentLength > maxSize) {
+                throw new java.io.IOException("File too large: " + contentLength);
+            }
+
+            // 确保父目录存在
+            File parentDir = cacheFile.getParentFile();
+            if (parentDir != null && !parentDir.exists()) {
+                if (!parentDir.mkdirs()) {
+                    throw new java.io.IOException("Failed to create cache directory: " + parentDir);
+                }
+            }
+
+            // 下载并保存
+            try (InputStream stream = conn.getInputStream();
+                 FileOutputStream fos = new FileOutputStream(cacheFile)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = stream.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+            }
+
+            Log.debug("Download completed: " + cacheFile.getAbsolutePath());
+            this.state.setType(StateType.DOWNLOADED);
+
+        } catch (Exception e) {
+            Log.debug("Download failed: " + url + " - " + e.getMessage());
+            this.state.setErrorMessage(e);
+
+            if (this.retryCount < Config.COMMON.contentMaxRetry.get()) {
+                download();
+            } else {
+                throw e;
+            }
         }
     }
-    
+
     private void loadFromCache() throws Exception {
         this.state.setType(StateType.LOADING);
-        
+
+        Log.debug("Loading from cache: " + cacheFile.getAbsolutePath() + ", exists=" + cacheFile.exists() + ", size=" + cacheFile.length());
+
         // 检查是否是GIF
         String fileName = this.cacheFile.getName().toLowerCase();
         if (fileName.endsWith(".gif") || isGifFile(this.cacheFile)) {
@@ -151,11 +193,14 @@ public class Content implements Progressable, IInitable, IAsyncProcessable, IDiv
                 this.gifImage = GifImage.read(fis);
                 this.isGif = true;
                 this.state.setType(StateType.LOADED);
+                Log.debug("Loaded GIF, frames: " + (this.gifImage != null ? this.gifImage.getFrameCount() : 0));
             }
         } else {
             // 加载普通图片
             this.image = ImageIO.read(this.cacheFile);
-            
+
+            Log.debug("ImageIO.read result: " + (this.image != null ? image.getWidth() + "x" + image.getHeight() : "null"));
+
             if (this.image != null) {
                 this.state.setType(StateType.LOADED);
             } else {
@@ -196,5 +241,39 @@ public class Content implements Progressable, IInitable, IAsyncProcessable, IDiv
     
     public boolean isAvailable() {
         return (this.image != null || this.gifImage != null) && this.state.getType() == StateType.LOADED;
+    }
+
+    /**
+     * 是否是动画（GIF）
+     */
+    public boolean isAnimated() {
+        return this.isGif && this.gifImage != null;
+    }
+
+    /**
+     * 获取动画帧数
+     */
+    public int getFrameCount() {
+        if (this.gifImage != null) {
+            return this.gifImage.getFrameCount();
+        }
+        return 1;
+    }
+
+    /**
+     * 获取指定帧的图片
+     */
+    public BufferedImage getFrame(int frameIndex) {
+        if (this.gifImage != null) {
+            return this.gifImage.getFrame(frameIndex);
+        }
+        return this.image;
+    }
+
+    /**
+     * 获取ContentId
+     */
+    public ContentId getId() {
+        return this.id;
     }
 }

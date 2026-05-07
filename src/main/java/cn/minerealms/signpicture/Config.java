@@ -103,7 +103,7 @@ public class Config {
             
             debugLog = builder
                     .comment("Output debug log")
-                    .define("debugLog", false);
+                    .define("debugLog", true);
             
             builder.pop();
         }

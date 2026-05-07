@@ -1,6 +1,9 @@
 package cn.minerealms.signpicture.gui;
 
 import cn.minerealms.signpicture.Config;
+import cn.minerealms.signpicture.Log;
+import cn.minerealms.signpicture.api.ImgurUploader;
+import cn.minerealms.signpicture.api.ImageUploader;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -104,25 +107,68 @@ public class GuiUpload extends BaseGuiScreen {
 
         String apiKey = this.apiKeyField != null ? this.apiKeyField.getValue() : "";
         if (apiKey.isEmpty()) {
-            this.uploadStatus = "Please enter API key";
-            return;
+            // 尝试从配置读取
+            apiKey = Config.COMMON.apiUploaderKey.get();
+            if (apiKey.isEmpty()) {
+                this.uploadStatus = "Please enter API key";
+                return;
+            }
         }
 
         this.uploadStatus = "Uploading...";
+        Log.debug("Starting upload to Imgur...");
 
-        // TODO: 实现实际的上传逻辑
-        // 这里需要集成Imgur或Gyazo API
+        // 创建上传器
+        ImgurUploader uploader = new ImgurUploader();
 
-        // 模拟上传
-        new Thread(() -> {
-            try {
-                Thread.sleep(2000);
+        // 异步上传
+        final String finalApiKey = apiKey;
+        if (this.imageFile != null) {
+            // 上传文件
+            uploader.upload(this.imageFile, finalApiKey).thenAccept(result -> {
+                handleUploadResult(result);
+            }).exceptionally(throwable -> {
+                this.mc.execute(() -> {
+                    this.uploadStatus = "Upload error: " + throwable.getMessage();
+                    Log.error("Upload error", throwable);
+                });
+                return null;
+            });
+        } else if (this.image != null) {
+            // 上传BufferedImage
+            uploader.upload(this.image, finalApiKey).thenAccept(result -> {
+                handleUploadResult(result);
+            }).exceptionally(throwable -> {
+                this.mc.execute(() -> {
+                    this.uploadStatus = "Upload error: " + throwable.getMessage();
+                    Log.error("Upload error", throwable);
+                });
+                return null;
+            });
+        }
+    }
+
+    private void handleUploadResult(ImageUploader.UploadResult result) {
+        // 在主线程更新UI
+        this.mc.execute(() -> {
+            if (result.isSuccess()) {
+                this.resultUrl = result.getUrl();
                 this.uploadStatus = "Upload successful!";
-                this.resultUrl = "https://example.com/uploaded_image.png";
-            } catch (InterruptedException e) {
-                this.uploadStatus = "Upload failed: " + e.getMessage();
+                Log.info("Upload successful: " + this.resultUrl);
+                Log.notice("Image uploaded successfully!");
+
+                // 如果父界面是GuiMainFull，自动填充URL
+                if (this.parentScreen instanceof GuiMainFull) {
+                    GuiMainFull parent = (GuiMainFull) this.parentScreen;
+                    // 这里需要添加一个方法来设置URL
+                    // parent.setUrl(this.resultUrl);
+                }
+            } else {
+                this.uploadStatus = "Upload failed: " + result.getError();
+                Log.error("Upload failed: " + result.getError());
+                Log.notice("Upload failed: " + result.getError());
             }
-        }).start();
+        });
     }
 
     @Override

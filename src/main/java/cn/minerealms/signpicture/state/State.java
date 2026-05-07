@@ -79,7 +79,7 @@ public class State {
             } catch (final Throwable e) {
                 setMessage(I18n.get("signpic.advmsg.unknown", e.getMessage()));
             }
-            Log.LOGGER.debug(getMessage(), throwable);
+            Log.debug("Error: " + getMessage() + " - " + throwable.getMessage());
         }
         return this;
     }

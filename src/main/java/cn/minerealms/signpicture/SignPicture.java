@@ -1,15 +1,21 @@
 package cn.minerealms.signpicture;
 
 import cn.minerealms.signpicture.command.SignPicCommand;
+import cn.minerealms.signpicture.data.SignPictureDataManagerClient;
+import cn.minerealms.signpicture.data.SignPictureDataManagerServer;
 import cn.minerealms.signpicture.entry.content.ContentManager;
 import cn.minerealms.signpicture.handler.ClientEventHandler;
 import cn.minerealms.signpicture.handler.KeyHandler;
 import cn.minerealms.signpicture.network.NetworkHandler;
+import cn.minerealms.signpicture.render.SignPictureRenderer;
 import com.mojang.logging.LogUtils;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
@@ -34,6 +40,13 @@ public class SignPicture {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public SignPicture() {
+        // 设置HTTP代理 - 从系统属性读取
+        String proxyHost = System.getProperty("http.proxyHost");
+        String proxyPort = System.getProperty("http.proxyPort");
+        if (proxyHost != null && proxyPort != null) {
+            LOGGER.info("Using HTTP proxy: " + proxyHost + ":" + proxyPort);
+        }
+
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         // 注册配置
@@ -74,8 +87,15 @@ public class SignPicture {
             MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
 
             event.enqueueWork(() -> {
-                // 注册渲染器将在后续实现
-                // EntityRenderers.register(BlockEntityType.SIGN, SignPictureRenderer::new);
+                // 初始化客户端DataManager
+                File gameDir = FMLPaths.GAMEDIR.get().toFile();
+                SignPictureDataManagerClient.INSTANCE.init(gameDir);
+                LOGGER.info("SignPictureDataManagerClient initialized");
+
+                // 注册告示牌渲染器
+                BlockEntityRenderers.register(BlockEntityType.SIGN, SignPictureRenderer::new);
+                BlockEntityRenderers.register(BlockEntityType.HANGING_SIGN, SignPictureRenderer::new);
+                LOGGER.info("SignPicture renderer registered");
             });
         });
     }
@@ -90,5 +110,12 @@ public class SignPicture {
     public void onRegisterCommands(RegisterCommandsEvent event) {
         SignPicCommand.register(event.getDispatcher());
         LOGGER.info("SignPicture commands registered");
+    }
+
+    @SubscribeEvent
+    public void onServerStarting(ServerStartingEvent event) {
+        // 初始化服务端DataManager
+        SignPictureDataManagerServer.INSTANCE.init(event.getServer());
+        LOGGER.info("SignPictureDataManagerServer initialized");
     }
 }

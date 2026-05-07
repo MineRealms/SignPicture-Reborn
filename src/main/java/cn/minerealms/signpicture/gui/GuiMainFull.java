@@ -1,6 +1,7 @@
 package cn.minerealms.signpicture.gui;
 
 import cn.minerealms.signpicture.Config;
+import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.entry.Entry;
 import cn.minerealms.signpicture.entry.EntryId;
 import cn.minerealms.signpicture.entry.EntryManager;
@@ -67,6 +68,16 @@ public class GuiMainFull extends BaseGuiScreen {
     @Nullable
     private BufferedImage previewImage = null;
     private boolean showPreview = true;
+
+    // 属性存储
+    private float sizeWidth = 1.0f;
+    private float sizeHeight = 1.0f;
+    private float rotationX = 0.0f;
+    private float rotationY = 0.0f;
+    private float rotationZ = 0.0f;
+    private float offsetX = 0.0f;
+    private float offsetY = 0.0f;
+    private float offsetZ = 0.0f;
 
     public GuiMainFull(@Nullable Screen parentScreen, @Nullable SignBlockEntity sign) {
         super(Component.literal("SignPicture Editor"), parentScreen);
@@ -205,24 +216,10 @@ public class GuiMainFull extends BaseGuiScreen {
     }
 
     private void loadUrlFromSign() {
-        if (this.sign == null) return;
-
-        var frontText = this.sign.getFrontText();
-        StringBuilder url = new StringBuilder();
-
-        for (int i = 0; i < 4; i++) {
-            Component line = frontText.getMessage(i, false);
-            String text = line.getString().trim();
-            if (!text.isEmpty()) {
-                url.append(text);
-            }
-        }
-
-        this.currentUrl = url.toString();
-        if (this.urlField != null) {
-            this.urlField.setValue(this.currentUrl);
-        }
-        loadPreview();
+        // Note: In the new UUID+NBT architecture, we don't load URL from sign text
+        // The sign only contains [SignPicture] and #uuid
+        // URL and attributes are stored in NBT data
+        // For now, leave URL field empty for new SignPictures
     }
 
     private void loadPreview() {
@@ -242,26 +239,95 @@ public class GuiMainFull extends BaseGuiScreen {
     }
 
     private void onScreenshot() {
-        // TODO: 打开截图界面
         try {
+            Log.debug("Taking screenshot...");
             File screenshotDir = new File(this.mc.gameDirectory, "screenshots");
             File screenshot = ScreenshotUtil.takeAndSaveScreenshot(screenshotDir);
-            // 可以选择自动上传截图
+
+            if (screenshot != null && screenshot.exists()) {
+                Log.info("Screenshot saved: " + screenshot.getName());
+                Log.notice("Screenshot saved: " + screenshot.getName());
+
+                // 可以选择将截图路径放入URL框
+                // this.currentUrl = screenshot.getAbsolutePath();
+                // if (this.urlField != null) {
+                //     this.urlField.setValue(this.currentUrl);
+                // }
+            } else {
+                Log.error("Failed to save screenshot");
+                Log.notice("Failed to save screenshot");
+            }
         } catch (Exception e) {
-            // 显示错误消息
+            Log.error("Screenshot error", e);
+            Log.notice("Screenshot error: " + e.getMessage());
         }
     }
 
     private void onUpload() {
-        // TODO: 打开上传界面
+        Log.debug("Opening upload GUI...");
         this.mc.setScreen(new GuiUpload(this));
     }
 
     private void onShortenUrl() {
-        // TODO: 缩短当前URL
-        if (!this.currentUrl.isEmpty()) {
-            // 调用URL缩短服务
+        if (this.currentUrl.isEmpty()) {
+            Log.notice("No URL to shorten");
+            return;
         }
+
+        Log.debug("Shortening URL: " + this.currentUrl);
+
+        // 检查配置的缩短服务
+        String shortenerType = Config.COMMON.apiShortenerType.get();
+        String shortenerKey = Config.COMMON.apiShortenerKey.get();
+
+        if (shortenerType.isEmpty()) {
+            Log.notice("No URL shortener configured. Set apiShortenerType in config (e.g., 'bitly')");
+            return;
+        }
+
+        if (shortenerKey.isEmpty()) {
+            Log.notice("No API key configured for URL shortener. Set apiShortenerKey in config.");
+            return;
+        }
+
+        // 创建缩短器
+        cn.minerealms.signpicture.api.UrlShortener shortener = null;
+        if ("bitly".equalsIgnoreCase(shortenerType)) {
+            shortener = new cn.minerealms.signpicture.api.BitlyShortener();
+        } else {
+            Log.notice("Unknown shortener type: " + shortenerType + ". Supported: bitly");
+            return;
+        }
+
+        Log.notice("Shortening URL...");
+
+        // 异步缩短URL
+        final cn.minerealms.signpicture.api.UrlShortener finalShortener = shortener;
+        shortener.shorten(this.currentUrl, shortenerKey).thenAccept(result -> {
+            // 在主线程更新UI
+            this.mc.execute(() -> {
+                if (result.isSuccess()) {
+                    String shortUrl = result.getShortUrl();
+                    Log.info("URL shortened: " + shortUrl);
+                    Log.notice("URL shortened successfully!");
+
+                    // 更新URL输入框
+                    this.currentUrl = shortUrl;
+                    if (this.urlField != null) {
+                        this.urlField.setValue(shortUrl);
+                    }
+                } else {
+                    Log.error("URL shorten failed: " + result.getError());
+                    Log.notice("Failed to shorten URL: " + result.getError());
+                }
+            });
+        }).exceptionally(throwable -> {
+            this.mc.execute(() -> {
+                Log.error("URL shorten error", throwable);
+                Log.notice("Error: " + throwable.getMessage());
+            });
+            return null;
+        });
     }
 
     private void onSettings() {
@@ -294,46 +360,43 @@ public class GuiMainFull extends BaseGuiScreen {
 
     private void onApply() {
         if (this.sign != null && !this.currentUrl.isEmpty()) {
-            writeUrlToSign();
+            createSignPicture();
         }
     }
 
     private void onDone() {
-        onApply();
+        if (this.sign != null && !this.currentUrl.isEmpty()) {
+            createSignPicture();
+        }
         this.onClose();
     }
 
-    private void writeUrlToSign() {
-        if (this.sign == null) return;
-
-        // 将URL分成4行
-        String[] lines = splitUrl(this.currentUrl, 4);
-
-        // 发送网络包到服务器
-        cn.minerealms.signpicture.network.NetworkHandler.INSTANCE.sendToServer(
-                new cn.minerealms.signpicture.network.UpdateSignPacket(
-                        this.sign.getBlockPos(),
-                        lines,
-                        true // 正面文本
-                )
-        );
-    }
-
-    private String[] splitUrl(@Nonnull String url, int maxLines) {
-        String[] lines = new String[maxLines];
-        int maxLength = 15; // 每行最大字符数
-
-        for (int i = 0; i < maxLines; i++) {
-            int start = i * maxLength;
-            if (start >= url.length()) {
-                lines[i] = "";
-            } else {
-                int end = Math.min(start + maxLength, url.length());
-                lines[i] = url.substring(start, end);
-            }
+    /**
+     * 创建SignPicture - 发送到服务端
+     */
+    private void createSignPicture() {
+        if (this.sign == null || this.currentUrl.isEmpty()) {
+            return;
         }
 
-        return lines;
+        // 验证URL格式
+        if (!this.currentUrl.startsWith("http://") && !this.currentUrl.startsWith("https://")) {
+            Log.notice("Invalid URL: must start with http:// or https://");
+            return;
+        }
+
+        Log.info("Creating SignPicture at " + this.sign.getBlockPos());
+
+        // 发送CreateSignPicturePacket到服务端
+        cn.minerealms.signpicture.network.NetworkHandler.sendToServer(
+                new cn.minerealms.signpicture.network.CreateSignPicturePacket(
+                        this.sign.getBlockPos(),
+                        this.currentUrl,
+                        this.sizeWidth, this.sizeHeight,
+                        this.rotationX, this.rotationY, this.rotationZ,
+                        this.offsetX, this.offsetY, this.offsetZ
+                )
+        );
     }
 
     private void openSizeGui() {
@@ -411,5 +474,27 @@ public class GuiMainFull extends BaseGuiScreen {
             return true;
         }
         return super.charTyped(codePoint, modifiers);
+    }
+
+    // ========== 属性设置方法 ==========
+
+    public void setSize(float width, float height) {
+        this.sizeWidth = width;
+        this.sizeHeight = height;
+        Log.debug("Size set: " + width + " x " + height);
+    }
+
+    public void setRotation(float x, float y, float z) {
+        this.rotationX = x;
+        this.rotationY = y;
+        this.rotationZ = z;
+        Log.debug("Rotation set: " + x + ", " + y + ", " + z);
+    }
+
+    public void setOffset(float x, float y, float z) {
+        this.offsetX = x;
+        this.offsetY = y;
+        this.offsetZ = z;
+        Log.debug("Offset set: " + x + ", " + y + ", " + z);
     }
 }

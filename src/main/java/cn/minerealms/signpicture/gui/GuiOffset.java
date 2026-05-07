@@ -1,5 +1,6 @@
 package cn.minerealms.signpicture.gui;
 
+import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.attr.prop.OffsetData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphics;
@@ -120,7 +121,16 @@ public class GuiOffset extends BaseGuiScreen {
     }
 
     private void onDone() {
-        // TODO: 保存偏移设置
+        // 保存偏移设置到父GUI
+        if (this.parentScreen instanceof GuiMainFull) {
+            GuiMainFull parent = (GuiMainFull) this.parentScreen;
+            parent.setOffset(this.offsetX, this.offsetY, this.offsetZ);
+            Log.debug("Offset saved: " + this.offsetX + ", " + this.offsetY + ", " + this.offsetZ);
+        } else if (this.parentScreen instanceof GuiMain) {
+            GuiMain parent = (GuiMain) this.parentScreen;
+            parent.setOffset(this.offsetX, this.offsetY, this.offsetZ);
+            Log.debug("Offset saved: " + this.offsetX + ", " + this.offsetY + ", " + this.offsetZ);
+        }
         this.onClose();
     }
 
