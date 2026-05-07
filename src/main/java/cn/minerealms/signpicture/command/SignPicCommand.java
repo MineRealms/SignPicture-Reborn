@@ -3,14 +3,17 @@ package cn.minerealms.signpicture.command;
 import cn.minerealms.signpicture.Config;
 import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.ModConstants;
+import cn.minerealms.signpicture.data.SignPicturePermission;
 import cn.minerealms.signpicture.entry.EntryManager;
 import cn.minerealms.signpicture.entry.content.ContentManager;
 import cn.minerealms.signpicture.util.ChatBuilder;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * SignPicture命令系统
@@ -32,6 +35,10 @@ public class SignPicCommand {
                 .then(Commands.literal("debug")
                     .requires(source -> source.hasPermission(2))
                     .executes(SignPicCommand::toggleDebug))
+                .then(Commands.literal("edit")
+                    .requires(source -> source.hasPermission(2))
+                    .then(Commands.argument("enabled", BoolArgumentType.bool())
+                        .executes(SignPicCommand::setEditMode)))
                 .executes(SignPicCommand::help)
         );
     }
@@ -47,6 +54,8 @@ public class SignPicCommand {
             Component.literal("§e/signpic clear §7- Clear image cache"), false);
         context.getSource().sendSuccess(() ->
             Component.literal("§e/signpic debug §7- Toggle debug logging"), false);
+        context.getSource().sendSuccess(() ->
+            Component.literal("§e/signpic edit <true|false> §7- Toggle OP edit mode"), false);
         return 1;
     }
 
@@ -113,5 +122,26 @@ public class SignPicCommand {
         context.getSource().sendSuccess(() ->
             Component.literal("§aDebug logging " + (newDebug ? "§2enabled" : "§cdisabled")), true);
         return 1;
+    }
+
+    private static int setEditMode(CommandContext<CommandSourceStack> context) {
+        try {
+            ServerPlayer player = context.getSource().getPlayerOrException();
+            boolean enabled = BoolArgumentType.getBool(context, "enabled");
+
+            SignPicturePermission.INSTANCE.setOpEditMode(player, enabled);
+
+            Log.info("OP edit mode " + (enabled ? "enabled" : "disabled") + " for " + player.getName().getString());
+            context.getSource().sendSuccess(() ->
+                Component.literal(enabled ?
+                    "§aOP edit mode §2enabled§a! You can now edit all SignPictures." :
+                    "§cOP edit mode §4disabled§c! You can only edit your own SignPictures."), true);
+            return 1;
+        } catch (Exception e) {
+            Log.error("Failed to set edit mode", e);
+            context.getSource().sendFailure(
+                Component.literal("§cFailed to set edit mode: " + e.getMessage()));
+            return 0;
+        }
     }
 }

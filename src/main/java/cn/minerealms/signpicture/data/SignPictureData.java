@@ -17,6 +17,9 @@ public class SignPictureData {
     // 图片URL（只存URL，不存图片！客户端自己下载）
     private String url;
 
+    // 创建者UUID（玩家UUID）
+    private String creatorUUID;
+
     // 渲染属性
     private float sizeWidth = 1.0f;
     private float sizeHeight = 1.0f;
@@ -59,6 +62,11 @@ public class SignPictureData {
         // 图片URL
         nbt.putString("url", url);
 
+        // 创建者UUID
+        if (creatorUUID != null && !creatorUUID.isEmpty()) {
+            nbt.putString("creatorUUID", creatorUUID);
+        }
+
         // 渲染属性
         nbt.putFloat("sizeWidth", sizeWidth);
         nbt.putFloat("sizeHeight", sizeHeight);
@@ -95,6 +103,11 @@ public class SignPictureData {
 
             // 图片URL
             data.url = nbt.getString("url");
+
+            // 创建者UUID（可选字段）
+            if (nbt.contains("creatorUUID")) {
+                data.creatorUUID = nbt.getString("creatorUUID");
+            }
 
             // 渲染属性（带范围限制）
             data.sizeWidth = clamp(nbt.getFloat("sizeWidth"), 0.01f, 10.0f);
@@ -172,6 +185,15 @@ public class SignPictureData {
     public void setUrl(@Nonnull String url) {
         this.url = url;
         touch();
+    }
+
+    @Nullable
+    public String getCreatorUUID() {
+        return creatorUUID;
+    }
+
+    public void setCreatorUUID(@Nullable String creatorUUID) {
+        this.creatorUUID = creatorUUID;
     }
 
     public float getSizeWidth() {

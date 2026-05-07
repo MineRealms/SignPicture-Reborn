@@ -106,6 +106,9 @@ public class CreateSignPicturePacket {
                 data.setRotation(packet.rotationX, packet.rotationY, packet.rotationZ);
                 data.setOffset(packet.offsetX, packet.offsetY, packet.offsetZ);
 
+                // 设置创建者UUID
+                data.setCreatorUUID(player.getStringUUID());
+
                 // 4. 保存到服务端
                 SignPictureDataManagerServer.INSTANCE.create(uuid, data);
 

@@ -50,6 +50,9 @@ public class SignHandlerV2 {
     private final Map<String, ResourceLocation> textureCache = new ConcurrentHashMap<>();
     private final Map<String, Long> textureAccessTime = new ConcurrentHashMap<>();
 
+    // Entry缓存：UUID -> Entry（性能优化）
+    private final Map<String, Entry> entryCache = new ConcurrentHashMap<>();
+
     // 请求追踪：避免重复请求
     private final Map<String, Long> requestedUUIDs = new ConcurrentHashMap<>();
     private static final long REQUEST_COOLDOWN = 5000; // 5秒冷却
@@ -107,11 +110,17 @@ public class SignHandlerV2 {
             return;
         }
 
-        // 4. 获取图片内容（使用现有的ContentManager）
+        // 4. 获取图片内容（使用缓存的Entry）
         String url = data.getUrl();
-        EntryId entryId = EntryId.from(sign.getBlockPos().toString());
-        ContentId contentId = ContentId.from(url);
-        Entry entry = EntryManager.instance.get(entryId, contentId);
+        Entry entry = entryCache.get(uuid);
+
+        // 如果缓存中没有，创建新的Entry
+        if (entry == null) {
+            EntryId entryId = EntryId.from("signpic_" + uuid);
+            ContentId contentId = ContentId.from(url);
+            entry = EntryManager.instance.get(entryId, contentId);
+            entryCache.put(uuid, entry);
+        }
 
         Content content = entry.getContent();
         if (!content.isAvailable()) {
@@ -393,6 +402,9 @@ public class SignHandlerV2 {
         }
     }
 
+    /**
+     * 清理过期纹理和Entry缓存
+     */
     public void cleanupExpiredTextures() {
         try {
             long currentTime = System.currentTimeMillis();
@@ -401,6 +413,8 @@ public class SignHandlerV2 {
                 Long lastAccess = textureAccessTime.get(uuid);
                 if (lastAccess == null || (currentTime - lastAccess) > TEXTURE_EXPIRE_TIME) {
                     releaseTexture(uuid);
+                    // 同时清理Entry缓存
+                    entryCache.remove(uuid);
                     return true;
                 }
                 return false;
@@ -410,6 +424,9 @@ public class SignHandlerV2 {
         }
     }
 
+    /**
+     * 清理所有纹理和Entry缓存
+     */
     public void clearAllTextures() {
         try {
             int count = textureCache.size();
@@ -417,6 +434,10 @@ public class SignHandlerV2 {
             for (String uuid : textureCache.keySet()) {
                 releaseTexture(uuid);
             }
+
+            textureCache.clear();
+            textureAccessTime.clear();
+            entryCache.clear(); // 清理Entry缓存
 
             Log.info("Cleared all texture cache (" + count + " textures)");
         } catch (Exception e) {

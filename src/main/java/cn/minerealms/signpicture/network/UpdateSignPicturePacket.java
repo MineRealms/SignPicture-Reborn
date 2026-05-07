@@ -3,7 +3,9 @@ package cn.minerealms.signpicture.network;
 import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.data.SignPictureData;
 import cn.minerealms.signpicture.data.SignPictureDataManagerServer;
+import cn.minerealms.signpicture.data.SignPicturePermission;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -85,20 +87,35 @@ public class UpdateSignPicturePacket {
             }
 
             try {
-                // 1. 重建数据对象
+                // 1. 获取现有数据检查权限
+                SignPictureData existingData = SignPictureDataManagerServer.INSTANCE.get(packet.uuid);
+                if (existingData == null) {
+                    player.sendSystemMessage(Component.literal("§cSignPicture not found: " + packet.uuid));
+                    return;
+                }
+
+                // 2. 权限检查
+                if (!SignPicturePermission.INSTANCE.canEdit(player, existingData)) {
+                    player.sendSystemMessage(Component.literal("§cYou don't have permission to edit this SignPicture"));
+                    Log.warn("[Server] Player " + player.getName().getString() + " tried to edit SignPicture " + packet.uuid + " without permission");
+                    return;
+                }
+
+                // 3. 重建数据对象（保留创建者UUID）
                 SignPictureData data = new SignPictureData(packet.uuid, packet.url);
                 data.setSize(packet.sizeWidth, packet.sizeHeight);
                 data.setRotation(packet.rotationX, packet.rotationY, packet.rotationZ);
                 data.setOffset(packet.offsetX, packet.offsetY, packet.offsetZ);
+                data.setCreatorUUID(existingData.getCreatorUUID()); // 保留创建者
 
-                // 2. 更新服务端数据
+                // 4. 更新服务端数据
                 SignPictureDataManagerServer.INSTANCE.update(packet.uuid, data);
 
-                // 3. 广播给所有客户端
+                // 5. 广播给所有客户端
                 SyncSignPicturePacket syncPacket = new SyncSignPicturePacket(data);
                 NetworkHandler.sendToAllClients(syncPacket);
 
-                Log.info("[Server] Updated SignPicture: " + packet.uuid);
+                Log.info("[Server] Updated SignPicture: " + packet.uuid + " by " + player.getName().getString());
 
             } catch (Exception e) {
                 Log.error("[Server] Failed to update SignPicture: " + packet.uuid, e);

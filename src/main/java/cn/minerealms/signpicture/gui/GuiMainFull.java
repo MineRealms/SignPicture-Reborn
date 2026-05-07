@@ -2,11 +2,16 @@ package cn.minerealms.signpicture.gui;
 
 import cn.minerealms.signpicture.Config;
 import cn.minerealms.signpicture.Log;
+import cn.minerealms.signpicture.data.SignPictureData;
+import cn.minerealms.signpicture.data.SignPictureDataManagerClient;
+import cn.minerealms.signpicture.data.SignPictureHelper;
 import cn.minerealms.signpicture.entry.Entry;
 import cn.minerealms.signpicture.entry.EntryId;
 import cn.minerealms.signpicture.entry.EntryManager;
 import cn.minerealms.signpicture.entry.content.Content;
 import cn.minerealms.signpicture.entry.content.ContentId;
+import cn.minerealms.signpicture.network.NetworkHandler;
+import cn.minerealms.signpicture.network.RequestSignPicturePacket;
 import cn.minerealms.signpicture.render.ImageRenderer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,6 +20,8 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -25,10 +32,15 @@ import java.io.File;
  * 告示牌编辑主界面 - 完整版
  * 提供完整的图片编辑功能，类似1.12.2版本
  */
+@OnlyIn(Dist.CLIENT)
 public class GuiMainFull extends BaseGuiScreen {
 
     @Nullable
     private final SignBlockEntity sign;
+
+    // 当前编辑的SignPicture UUID（如果是编辑现有的）
+    @Nullable
+    private String editingUUID = null;
 
     // 输入框
     @Nullable
@@ -216,10 +228,59 @@ public class GuiMainFull extends BaseGuiScreen {
     }
 
     private void loadUrlFromSign() {
-        // Note: In the new UUID+NBT architecture, we don't load URL from sign text
-        // The sign only contains [SignPicture] and #uuid
-        // URL and attributes are stored in NBT data
-        // For now, leave URL field empty for new SignPictures
+        // 检查告示牌是否已经是SignPicture
+        if (this.sign == null) return;
+
+        // 检查是否是SignPicture
+        if (!SignPictureHelper.isSignPicture(this.sign)) {
+            // 不是SignPicture，保持空白
+            return;
+        }
+
+        // 提取UUID
+        String uuid = SignPictureHelper.getUUID(this.sign);
+        if (uuid == null || uuid.isEmpty()) {
+            return;
+        }
+
+        this.editingUUID = uuid;
+
+        // 从客户端缓存加载数据
+        SignPictureData data = SignPictureDataManagerClient.INSTANCE.getMetadata(uuid);
+        if (data == null) {
+            // 缓存中没有，请求服务端
+            NetworkHandler.sendToServer(new RequestSignPicturePacket(uuid));
+            Log.info("[GUI] Requesting SignPicture data: " + uuid);
+            // 数据会通过ResponseSignPicturePacket异步返回，暂时显示加载中
+            return;
+        }
+
+        // 加载数据到GUI
+        loadDataToGui(data);
+    }
+
+    /**
+     * 加载SignPictureData到GUI（客户端）
+     */
+    @OnlyIn(Dist.CLIENT)
+    public void loadDataToGui(@Nonnull SignPictureData data) {
+        this.currentUrl = data.getUrl();
+        this.sizeWidth = data.getSizeWidth();
+        this.sizeHeight = data.getSizeHeight();
+        this.rotationX = data.getRotationX();
+        this.rotationY = data.getRotationY();
+        this.rotationZ = data.getRotationZ();
+        this.offsetX = data.getOffsetX();
+        this.offsetY = data.getOffsetY();
+        this.offsetZ = data.getOffsetZ();
+
+        if (this.urlField != null) {
+            this.urlField.setValue(this.currentUrl);
+        }
+
+        loadPreview();
+
+        Log.info("[GUI] Loaded SignPicture data: " + data.getUuid());
     }
 
     private void loadPreview() {
@@ -228,14 +289,12 @@ public class GuiMainFull extends BaseGuiScreen {
             return;
         }
 
+        // 触发下载但不立即获取图片
+        // 图片会在render()方法中异步获取
         EntryId entryId = EntryId.from("gui_preview");
         ContentId contentId = ContentId.from(this.currentUrl);
-        Entry entry = EntryManager.instance.get(entryId, contentId);
-        Content content = entry.getContent();
-
-        if (content != null && content.isAvailable()) {
-            this.previewImage = content.getImage();
-        }
+        EntryManager.instance.get(entryId, contentId);
+        // 不设置previewImage，让render()方法处理
     }
 
     private void onScreenshot() {
@@ -372,7 +431,7 @@ public class GuiMainFull extends BaseGuiScreen {
     }
 
     /**
-     * 创建SignPicture - 发送到服务端
+     * 创建或更新SignPicture - 发送到服务端
      */
     private void createSignPicture() {
         if (this.sign == null || this.currentUrl.isEmpty()) {
@@ -385,18 +444,33 @@ public class GuiMainFull extends BaseGuiScreen {
             return;
         }
 
-        Log.info("Creating SignPicture at " + this.sign.getBlockPos());
+        // 区分创建和更新
+        if (this.editingUUID != null) {
+            // 更新现有SignPicture
+            Log.info("Updating SignPicture " + this.editingUUID + " at " + this.sign.getBlockPos());
 
-        // 发送CreateSignPicturePacket到服务端
-        cn.minerealms.signpicture.network.NetworkHandler.sendToServer(
-                new cn.minerealms.signpicture.network.CreateSignPicturePacket(
-                        this.sign.getBlockPos(),
-                        this.currentUrl,
-                        this.sizeWidth, this.sizeHeight,
-                        this.rotationX, this.rotationY, this.rotationZ,
-                        this.offsetX, this.offsetY, this.offsetZ
-                )
-        );
+            SignPictureData data = new SignPictureData(this.editingUUID, this.currentUrl);
+            data.setSize(this.sizeWidth, this.sizeHeight);
+            data.setRotation(this.rotationX, this.rotationY, this.rotationZ);
+            data.setOffset(this.offsetX, this.offsetY, this.offsetZ);
+
+            cn.minerealms.signpicture.network.NetworkHandler.sendToServer(
+                    new cn.minerealms.signpicture.network.UpdateSignPicturePacket(data)
+            );
+        } else {
+            // 创建新SignPicture
+            Log.info("Creating SignPicture at " + this.sign.getBlockPos());
+
+            cn.minerealms.signpicture.network.NetworkHandler.sendToServer(
+                    new cn.minerealms.signpicture.network.CreateSignPicturePacket(
+                            this.sign.getBlockPos(),
+                            this.currentUrl,
+                            this.sizeWidth, this.sizeHeight,
+                            this.rotationX, this.rotationY, this.rotationZ,
+                            this.offsetX, this.offsetY, this.offsetZ
+                    )
+            );
+        }
     }
 
     private void openSizeGui() {
@@ -429,28 +503,43 @@ public class GuiMainFull extends BaseGuiScreen {
         guiGraphics.drawString(this.font, "Preview:",
                 this.guiLeft + 10, this.guiTop + 58, 0x404040, false);
 
-        // 绘制预览
-        if (this.showPreview && this.previewImage != null) {
+        // 绘制预览（异步获取图片）
+        if (this.showPreview && !this.currentUrl.isEmpty()) {
             int previewX = this.guiLeft + 10;
             int previewY = this.guiTop + 70;
             int maxWidth = this.xSize - 120;
             int maxHeight = 150;
 
             try {
-                // 绘制预览边框
-                guiGraphics.fill(previewX - 1, previewY - 1,
-                        previewX + maxWidth + 1, previewY + maxHeight + 1,
-                        0xFF000000);
+                // 尝试获取图片
+                EntryId entryId = EntryId.from("gui_preview");
+                ContentId contentId = ContentId.from(this.currentUrl);
+                Entry entry = EntryManager.instance.get(entryId, contentId);
+                Content content = entry.getContent();
 
-                ImageRenderer.renderImage(guiGraphics, this.previewImage,
-                        previewX, previewY, maxWidth, maxHeight);
+                if (content != null && content.isAvailable()) {
+                    BufferedImage image = content.getImage();
+                    if (image != null) {
+                        // 绘制预览边框
+                        guiGraphics.fill(previewX - 1, previewY - 1,
+                                previewX + maxWidth + 1, previewY + maxHeight + 1,
+                                0xFF000000);
+
+                        ImageRenderer.renderImage(guiGraphics, image,
+                                previewX, previewY, maxWidth, maxHeight);
+                    } else {
+                        guiGraphics.drawString(this.font, "Loading preview...",
+                                this.guiLeft + 10, this.guiTop + 70, 0x808080, false);
+                    }
+                } else {
+                    guiGraphics.drawString(this.font, "Loading preview...",
+                            this.guiLeft + 10, this.guiTop + 70, 0x808080, false);
+                }
             } catch (Exception e) {
-                // 忽略渲染错误
+                guiGraphics.drawString(this.font, "Failed to load preview",
+                        this.guiLeft + 10, this.guiTop + 70, 0xFF0000, false);
             }
-        } else if (!this.currentUrl.isEmpty()) {
-            guiGraphics.drawString(this.font, "Loading preview...",
-                    this.guiLeft + 10, this.guiTop + 70, 0x808080, false);
-        } else {
+        } else if (this.currentUrl.isEmpty()) {
             guiGraphics.drawString(this.font, "Enter an image URL above",
                     this.guiLeft + 10, this.guiTop + 70, 0x808080, false);
         }
