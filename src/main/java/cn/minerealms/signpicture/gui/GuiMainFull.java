@@ -1,5 +1,6 @@
 package cn.minerealms.signpicture.gui;
 
+import cn.minerealms.signpicture.ClientLog;
 import cn.minerealms.signpicture.Config;
 import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.data.SignPictureData;
@@ -324,7 +325,7 @@ public class GuiMainFull extends BaseGuiScreen {
 
             if (screenshot != null && screenshot.exists()) {
                 Log.info("Screenshot saved: " + screenshot.getName());
-                Log.notice("Screenshot saved: " + screenshot.getName());
+                ClientLog.notice("Screenshot saved: " + screenshot.getName());
 
                 // 可以选择将截图路径放入URL框
                 // this.currentUrl = screenshot.getAbsolutePath();
@@ -333,11 +334,11 @@ public class GuiMainFull extends BaseGuiScreen {
                 // }
             } else {
                 Log.error("Failed to save screenshot");
-                Log.notice("Failed to save screenshot");
+                ClientLog.notice("Failed to save screenshot");
             }
         } catch (Exception e) {
             Log.error("Screenshot error", e);
-            Log.notice("Screenshot error: " + e.getMessage());
+            ClientLog.notice("Screenshot error: " + e.getMessage());
         }
     }
 
@@ -348,7 +349,7 @@ public class GuiMainFull extends BaseGuiScreen {
 
     private void onShortenUrl() {
         if (this.currentUrl.isEmpty()) {
-            Log.notice("No URL to shorten");
+            ClientLog.notice("No URL to shorten");
             return;
         }
 
@@ -359,12 +360,12 @@ public class GuiMainFull extends BaseGuiScreen {
         String shortenerKey = Config.COMMON.apiShortenerKey.get();
 
         if (shortenerType.isEmpty()) {
-            Log.notice("No URL shortener configured. Set apiShortenerType in config (e.g., 'bitly')");
+            ClientLog.notice("No URL shortener configured. Set apiShortenerType in config (e.g., 'bitly')");
             return;
         }
 
         if (shortenerKey.isEmpty()) {
-            Log.notice("No API key configured for URL shortener. Set apiShortenerKey in config.");
+            ClientLog.notice("No API key configured for URL shortener. Set apiShortenerKey in config.");
             return;
         }
 
@@ -373,11 +374,11 @@ public class GuiMainFull extends BaseGuiScreen {
         if ("bitly".equalsIgnoreCase(shortenerType)) {
             shortener = new cn.minerealms.signpicture.api.BitlyShortener();
         } else {
-            Log.notice("Unknown shortener type: " + shortenerType + ". Supported: bitly");
+            ClientLog.notice("Unknown shortener type: " + shortenerType + ". Supported: bitly");
             return;
         }
 
-        Log.notice("Shortening URL...");
+        ClientLog.notice("Shortening URL...");
 
         // 异步缩短URL
         final cn.minerealms.signpicture.api.UrlShortener finalShortener = shortener;
@@ -387,7 +388,7 @@ public class GuiMainFull extends BaseGuiScreen {
                 if (result.isSuccess()) {
                     String shortUrl = result.getShortUrl();
                     Log.info("URL shortened: " + shortUrl);
-                    Log.notice("URL shortened successfully!");
+                    ClientLog.notice("URL shortened successfully!");
 
                     // 更新URL输入框
                     this.currentUrl = shortUrl;
@@ -396,13 +397,13 @@ public class GuiMainFull extends BaseGuiScreen {
                     }
                 } else {
                     Log.error("URL shorten failed: " + result.getError());
-                    Log.notice("Failed to shorten URL: " + result.getError());
+                    ClientLog.notice("Failed to shorten URL: " + result.getError());
                 }
             });
         }).exceptionally(throwable -> {
             this.mc.execute(() -> {
                 Log.error("URL shorten error", throwable);
-                Log.notice("Error: " + throwable.getMessage());
+                ClientLog.notice("Error: " + throwable.getMessage());
             });
             return null;
         });
@@ -459,7 +460,7 @@ public class GuiMainFull extends BaseGuiScreen {
 
         // 验证URL格式
         if (!this.currentUrl.startsWith("http://") && !this.currentUrl.startsWith("https://")) {
-            Log.notice("Invalid URL: must start with http:// or https://");
+            ClientLog.notice("Invalid URL: must start with http:// or https://");
             return;
         }
 

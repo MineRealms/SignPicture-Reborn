@@ -7,7 +7,9 @@ import cn.minerealms.signpicture.entry.content.ContentCapacityOverException;
 import cn.minerealms.signpicture.entry.content.RetryCountOverException;
 import cn.minerealms.signpicture.image.InvalidImageException;
 import com.google.common.collect.Maps;
-import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,21 +65,21 @@ public class State {
             try {
                 throw throwable;
             } catch (final URISyntaxException e) {
-                setMessage(I18n.get("signpic.advmsg.invalidurl", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.invalidurl", e.getMessage()));
             } catch (final LoadCanceledException e) {
-                setMessage(I18n.get("signpic.advmsg.loadstopped", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.loadstopped", e.getMessage()));
             } catch (final RetryCountOverException e) {
-                setMessage(I18n.get("signpic.advmsg.retryover", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.retryover", e.getMessage()));
             } catch (final ContentCapacityOverException e) {
-                setMessage(I18n.get("signpic.advmsg.capacityover", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.capacityover", e.getMessage()));
             } catch (final ContentBlockedException e) {
-                setMessage(I18n.get("signpic.advmsg.blocked", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.blocked", e.getMessage()));
             } catch (final InvalidImageException e) {
-                setMessage(I18n.get("signpic.advmsg.invalidimage", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.invalidimage", e.getMessage()));
             } catch (final IOException e) {
-                setMessage(I18n.get("signpic.advmsg.ioerror", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.ioerror", e.getMessage()));
             } catch (final Throwable e) {
-                setMessage(I18n.get("signpic.advmsg.unknown", e.getMessage()));
+                setMessage(translatable("signpic.advmsg.unknown", e.getMessage()));
             }
             Log.debug("Error: " + getMessage() + " - " + throwable.getMessage());
         }
@@ -100,7 +102,16 @@ public class State {
     /**
      * 获取状态消息（包含进度百分比）
      */
+    @OnlyIn(Dist.CLIENT)
     public @Nonnull String getStateMessage() {
-        return I18n.get(this.type.translationKey, (int) (this.progress.getProgress() * 100));
+        return translatable(this.type.translationKey, (int) (this.progress.getProgress() * 100));
+    }
+    
+    private static String translatable(String key, Object... args) {
+        try {
+            return Component.translatable(key, args).getString();
+        } catch (Exception e) {
+            return key;
+        }
     }
 }

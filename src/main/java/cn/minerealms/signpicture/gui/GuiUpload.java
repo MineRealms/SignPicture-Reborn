@@ -1,5 +1,6 @@
 package cn.minerealms.signpicture.gui;
 
+import cn.minerealms.signpicture.ClientLog;
 import cn.minerealms.signpicture.Config;
 import cn.minerealms.signpicture.Log;
 import cn.minerealms.signpicture.api.ImgurUploader;
@@ -155,7 +156,7 @@ public class GuiUpload extends BaseGuiScreen {
                 this.resultUrl = result.getUrl();
                 this.uploadStatus = "Upload successful!";
                 Log.info("Upload successful: " + this.resultUrl);
-                Log.notice("Image uploaded successfully!");
+                ClientLog.notice("Image uploaded successfully!");
 
                 // 如果父界面是GuiMainFull，自动填充URL
                 if (this.parentScreen instanceof GuiMainFull) {
@@ -166,7 +167,7 @@ public class GuiUpload extends BaseGuiScreen {
             } else {
                 this.uploadStatus = "Upload failed: " + result.getError();
                 Log.error("Upload failed: " + result.getError());
-                Log.notice("Upload failed: " + result.getError());
+                ClientLog.notice("Upload failed: " + result.getError());
             }
         });
     }

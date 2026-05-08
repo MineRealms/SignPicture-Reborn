@@ -1,18 +1,10 @@
 package cn.minerealms.signpicture;
 
 import cn.minerealms.signpicture.command.SignPicCommand;
-import cn.minerealms.signpicture.data.SignPictureDataManagerClient;
 import cn.minerealms.signpicture.data.SignPictureDataManagerServer;
 import cn.minerealms.signpicture.entry.content.ContentManager;
-import cn.minerealms.signpicture.handler.ClientEventHandler;
-import cn.minerealms.signpicture.handler.KeyHandler;
 import cn.minerealms.signpicture.network.NetworkHandler;
-import cn.minerealms.signpicture.render.SignPictureRenderer;
 import com.mojang.logging.LogUtils;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -30,17 +22,12 @@ import org.slf4j.Logger;
 
 import java.io.File;
 
-/**
- * SignPicture-Rebornified 主类
- * 允许在告示牌上显示图片的Minecraft模组
- */
 @Mod(ModConstants.MOD_ID)
 public class SignPicture {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public SignPicture() {
-        // 设置HTTP代理 - 从系统属性读取
         String proxyHost = System.getProperty("http.proxyHost");
         String proxyPort = System.getProperty("http.proxyPort");
         if (proxyHost != null && proxyPort != null) {
@@ -49,61 +36,63 @@ public class SignPicture {
 
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // 注册配置
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
 
-        // 注册Mod事件
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::clientSetup);
-        modEventBus.addListener(this::registerKeys);
-
-        // 注册Forge事件总线
-        MinecraftForge.EVENT_BUS.register(this);
 
         LOGGER.info("SignPicture-Rebornified initializing...");
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("SignPicture common setup");
+        
+        NetworkHandler.register();
 
-        // 注册网络包
-        event.enqueueWork(NetworkHandler::register);
+        File gameDir = FMLPaths.GAMEDIR.get().toFile();
+        File signpicDir = new File(gameDir, "signpic");
+        ContentManager.instance.init(signpicDir);
+        LOGGER.info("ContentManager initialized at: " + signpicDir.getAbsolutePath());
 
-        // 初始化ContentManager
-        event.enqueueWork(() -> {
-            File gameDir = FMLPaths.GAMEDIR.get().toFile();
-            File signpicDir = new File(gameDir, "signpic");
-            ContentManager.instance.init(signpicDir);
-            LOGGER.info("ContentManager initialized at: " + signpicDir.getAbsolutePath());
-        });
+        MinecraftForge.EVENT_BUS.register(this);
     }
 
     private void clientSetup(final FMLClientSetupEvent event) {
-        // 仅在客户端执行
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            LOGGER.info("SignPicture client setup");
-            // 注册客户端事件处理器
-            MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
+        DistExecutor.unsafeRunWhenOn(
+            net.minecraftforge.api.distmarker.Dist.CLIENT, 
+            () -> () -> {
+                try {
+                    MinecraftForge.EVENT_BUS.register(
+                        Class.forName("cn.minerealms.signpicture.handler.ClientEventHandler")
+                            .getConstructor().newInstance()
+                    );
 
-            event.enqueueWork(() -> {
-                // 初始化客户端DataManager
-                File gameDir = FMLPaths.GAMEDIR.get().toFile();
-                SignPictureDataManagerClient.INSTANCE.init(gameDir);
-                LOGGER.info("SignPictureDataManagerClient initialized");
+                    File gameDir = FMLPaths.GAMEDIR.get().toFile();
+                    Class.forName("cn.minerealms.signpicture.data.SignPictureDataManagerClient")
+                        .getMethod("init", File.class).invoke(null, gameDir);
 
-                // 注册告示牌渲染器
-                BlockEntityRenderers.register(BlockEntityType.SIGN, SignPictureRenderer::new);
-                BlockEntityRenderers.register(BlockEntityType.HANGING_SIGN, SignPictureRenderer::new);
-                LOGGER.info("SignPicture renderer registered");
-            });
-        });
-    }
+                    var beType = Class.forName("net.minecraft.world.level.block.entity.BlockEntityType");
+                    var renderers = Class.forName("net.minecraft.client.renderer.blockentity.BlockEntityRenderers");
+                    var ctx = Class.forName("net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider$Context");
+                    var renderer = Class.forName("cn.minerealms.signpicture.render.SignPictureRenderer");
 
-    private void registerKeys(final RegisterKeyMappingsEvent event) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            KeyHandler.instance.registerKeys(event);
-        });
+                    renderers.getMethod("register", beType, ctx)
+                        .invoke(null, beType.getField("SIGN").get(null), 
+                            renderer.getConstructor(ctx).newInstance((Object)null));
+                    renderers.getMethod("register", beType, ctx)
+                        .invoke(null, beType.getField("HANGING_SIGN").get(null), 
+                            renderer.getConstructor(ctx).newInstance((Object)null));
+
+                    Class.forName("cn.minerealms.signpicture.handler.KeyHandler")
+                        .getMethod("registerKeys").invoke(null);
+                    
+                    LOGGER.info("SignPicture client setup complete");
+                } catch (Exception e) {
+                    LOGGER.error("Failed client setup", e);
+                }
+            }
+        );
     }
 
     @SubscribeEvent
@@ -114,7 +103,6 @@ public class SignPicture {
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        // 初始化服务端DataManager
         SignPictureDataManagerServer.INSTANCE.init(event.getServer());
         LOGGER.info("SignPictureDataManagerServer initialized");
     }
