@@ -95,6 +95,9 @@ public class GuiMainFull extends BaseGuiScreen {
     private float offsetY = 0.0f;
     private float offsetZ = 0.0f;
 
+    // 标记参数是否已被用户修改过
+    private boolean parametersModified = false;
+
     public GuiMainFull(@Nullable Screen parentScreen, @Nullable SignBlockEntity sign) {
         super(Component.literal("SignPicture Editor"), parentScreen);
         this.sign = sign;
@@ -273,14 +276,18 @@ public class GuiMainFull extends BaseGuiScreen {
     @OnlyIn(Dist.CLIENT)
     public void loadDataToGui(@Nonnull SignPictureData data) {
         this.currentUrl = data.getUrl();
-        this.sizeWidth = data.getSizeWidth();
-        this.sizeHeight = data.getSizeHeight();
-        this.rotationX = data.getRotationX();
-        this.rotationY = data.getRotationY();
-        this.rotationZ = data.getRotationZ();
-        this.offsetX = data.getOffsetX();
-        this.offsetY = data.getOffsetY();
-        this.offsetZ = data.getOffsetZ();
+
+        // 只在参数未被用户修改时才加载服务端的参数
+        if (!parametersModified) {
+            this.sizeWidth = data.getSizeWidth();
+            this.sizeHeight = data.getSizeHeight();
+            this.rotationX = data.getRotationX();
+            this.rotationY = data.getRotationY();
+            this.rotationZ = data.getRotationZ();
+            this.offsetX = data.getOffsetX();
+            this.offsetY = data.getOffsetY();
+            this.offsetZ = data.getOffsetZ();
+        }
 
         if (this.urlField != null) {
             this.urlField.setValue(this.currentUrl);
@@ -291,7 +298,8 @@ public class GuiMainFull extends BaseGuiScreen {
         Log.info("[GUI] Loaded SignPicture data: " + data.getUuid() +
                  " - Size: " + sizeWidth + "x" + sizeHeight +
                  ", Rotation: " + rotationX + "," + rotationY + "," + rotationZ +
-                 ", Offset: " + offsetX + "," + offsetY + "," + offsetZ);
+                 ", Offset: " + offsetX + "," + offsetY + "," + offsetZ +
+                 " (parametersModified=" + parametersModified + ")");
     }
 
     private void loadPreview() {
@@ -610,6 +618,7 @@ public class GuiMainFull extends BaseGuiScreen {
     public void setSize(float width, float height) {
         this.sizeWidth = width;
         this.sizeHeight = height;
+        this.parametersModified = true;
         Log.debug("Size set: " + width + " x " + height);
     }
 
@@ -617,6 +626,7 @@ public class GuiMainFull extends BaseGuiScreen {
         this.rotationX = x;
         this.rotationY = y;
         this.rotationZ = z;
+        this.parametersModified = true;
         Log.debug("Rotation set: " + x + ", " + y + ", " + z);
     }
 
@@ -624,6 +634,7 @@ public class GuiMainFull extends BaseGuiScreen {
         this.offsetX = x;
         this.offsetY = y;
         this.offsetZ = z;
+        this.parametersModified = true;
         Log.debug("Offset set: " + x + ", " + y + ", " + z);
     }
 }
