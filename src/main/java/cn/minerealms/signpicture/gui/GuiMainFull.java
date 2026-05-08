@@ -544,13 +544,20 @@ public class GuiMainFull extends BaseGuiScreen {
                 if (content != null && content.isAvailable()) {
                     BufferedImage image = content.getImage();
                     if (image != null && image.getWidth() > 0 && image.getHeight() > 0) {
-                        // 绘制预览边框
-                        guiGraphics.fill(previewX - 1, previewY - 1,
-                                previewX + maxWidth + 1, previewY + maxHeight + 1,
-                                0xFF000000);
+                        // 额外检查：确保不是单色占位图
+                        if (isValidImage(image)) {
+                            // 绘制预览边框
+                            guiGraphics.fill(previewX - 1, previewY - 1,
+                                    previewX + maxWidth + 1, previewY + maxHeight + 1,
+                                    0xFF000000);
 
-                        ImageRenderer.renderImage(guiGraphics, image,
-                                previewX, previewY, maxWidth, maxHeight);
+                            ImageRenderer.renderImage(guiGraphics, image,
+                                    previewX, previewY, maxWidth, maxHeight);
+                        } else {
+                            // 占位图，显示加载中
+                            guiGraphics.drawString(this.font, "Loading preview...",
+                                    this.guiLeft + 10, this.guiTop + 70, 0x808080, false);
+                        }
                     } else {
                         // 图片无效，显示加载中
                         guiGraphics.drawString(this.font, "Loading preview...",
@@ -636,5 +643,42 @@ public class GuiMainFull extends BaseGuiScreen {
         this.offsetZ = z;
         this.parametersModified = true;
         Log.debug("Offset set: " + x + ", " + y + ", " + z);
+    }
+
+    /**
+     * 检查图片是否有效（不是单色占位图）
+     */
+    private boolean isValidImage(@Nonnull BufferedImage image) {
+        // 检查图片尺寸
+        if (image.getWidth() < 10 || image.getHeight() < 10) {
+            return false; // 太小，可能是占位图
+        }
+
+        // 采样检查：检查图片是否是单一颜色
+        try {
+            int sampleSize = Math.min(5, Math.min(image.getWidth(), image.getHeight()));
+            int firstPixel = image.getRGB(0, 0);
+            int differentPixels = 0;
+
+            // 采样几个点
+            for (int i = 0; i < sampleSize; i++) {
+                for (int j = 0; j < sampleSize; j++) {
+                    int x = (image.getWidth() * i) / sampleSize;
+                    int y = (image.getHeight() * j) / sampleSize;
+                    if (x < image.getWidth() && y < image.getHeight()) {
+                        int pixel = image.getRGB(x, y);
+                        if (pixel != firstPixel) {
+                            differentPixels++;
+                        }
+                    }
+                }
+            }
+
+            // 如果所有采样点都是同一颜色，可能是占位图
+            return differentPixels > 0;
+        } catch (Exception e) {
+            // 如果检查失败，保守地认为是有效图片
+            return true;
+        }
     }
 }
